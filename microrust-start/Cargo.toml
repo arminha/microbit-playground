@@ -1,0 +1,10 @@
+[package]
+name = "microrust-start"
+version = "0.1.0"
+authors = ["Armin Häberling <armin.aha@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+cortex-m-rt = "0.6.13"
+microbit = "0.8.0"
+panic-halt = "0.2.0"
