@@ -4,6 +4,7 @@ Playing with the BBC micro:bit
 
 ## Documentation
 
+* [micro:bit Hardware Documentation](https://tech.microbit.org/hardware/1-5-revision/)
 * [MicroRust](https://droogmic.github.io/microrust/) book.
 
 ### Helpful commands
