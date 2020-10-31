@@ -11,5 +11,5 @@ Playing with the BBC micro:bit
 Start an OpenOCD connection
 
 ```sh
-openocd -f interface/cmsis-dap.cfg -f target/nrf51.cfg
+openocd -f interface/cmsis-dap.cfg -f target/nrf51.cfg -l /tmp/openocd.log
 ```
