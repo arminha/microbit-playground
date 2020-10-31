@@ -152,7 +152,6 @@ name = "microrust-start"
 version = "0.1.0"
 dependencies = [
  "cortex-m-rt",
- "cortex-m-semihosting",
  "microbit",
  "panic-semihosting",
 ]

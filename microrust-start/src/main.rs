@@ -6,18 +6,15 @@ extern crate panic_semihosting;
 
 use core::fmt::Write;
 use cortex_m_rt::entry;
-use cortex_m_semihosting::hio;
 
-use microbit::hal::prelude::*;
 use microbit::hal::delay::Delay;
+use microbit::hal::prelude::*;
 use microbit::hal::serial;
 use microbit::hal::serial::BAUD115200;
+use microbit::led::Display;
 
 #[entry]
 fn main() -> ! {
-    let mut stdout = hio::hstdout().unwrap();
-    writeln!(stdout, "Start").unwrap();
-
     if let Some(p) = microbit::Peripherals::take() {
         let gpio = p.GPIO.split();
         // Configure RX and TX pins accordingly
