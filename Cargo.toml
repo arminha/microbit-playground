@@ -1,2 +1,7 @@
 [workspace]
 members = ["microrust-start"]
+
+[profile.release]
+codegen-units = 1
+debug = true
+lto = true
