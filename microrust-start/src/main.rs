@@ -8,20 +8,19 @@ use core::fmt::Write;
 use cortex_m_rt::entry;
 
 use microbit::hal::delay::Delay;
+use microbit::hal::gpio::gpio::{PIN24, PIN25};
+use microbit::hal::gpio::{Floating, Input};
 use microbit::hal::prelude::*;
 use microbit::hal::serial;
-use microbit::hal::serial::BAUD115200;
+use microbit::hal::serial::{Tx, BAUD115200};
 use microbit::led::Display;
+use microbit::UART0;
 
 #[entry]
 fn main() -> ! {
     if let Some(p) = microbit::Peripherals::take() {
         let gpio = p.GPIO.split();
-        // Configure RX and TX pins accordingly
-        let tx = gpio.pin24.into_push_pull_output().into();
-        let rx = gpio.pin25.into_floating_input().into();
-        // Configure serial communication
-        let (mut tx, _) = serial::Serial::uart0(p.UART0, tx, rx, BAUD115200).split();
+        let mut tx = init_uart(gpio.pin24, gpio.pin25, p.UART0);
 
         let language = "Rust";
         let ranking = 1;
@@ -61,4 +60,17 @@ fn main() -> ! {
         }
     }
     panic!("End")
+}
+
+fn init_uart(
+    pin24: PIN24<Input<Floating>>,
+    pin25: PIN25<Input<Floating>>,
+    uart: UART0,
+) -> Tx<UART0> {
+    // Configure RX and TX pins accordingly
+    let tx = pin24.into_push_pull_output().into();
+    let rx = pin25.into_floating_input().into();
+    // Configure serial communication
+    let (tx, _) = serial::Serial::uart0(uart, tx, rx, BAUD115200).split();
+    tx
 }
