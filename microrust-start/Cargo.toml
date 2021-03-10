@@ -7,4 +7,4 @@ edition = "2018"
 [dependencies]
 cortex-m-rt = "0.6.13"
 microbit = "0.8.0"
-panic-semihosting = "0.5.4"
+panic-semihosting = "0.5.6"
