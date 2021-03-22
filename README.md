@@ -1,5 +1,7 @@
 # micro:bit playground
 
+[![dependency status](https://deps.rs/repo/github/arminha/microbit-playground/status.svg)](https://deps.rs/repo/github/arminha/microbit-playground)
+
 Playing with the BBC micro:bit
 
 ## Documentation
