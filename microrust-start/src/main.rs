@@ -1,12 +1,10 @@
 #![no_std]
 #![no_main]
 
-extern crate microbit;
-extern crate panic_semihosting;
+use panic_semihosting as _;
 
 use core::fmt::Write;
 use cortex_m_rt::entry;
-
 use microbit::{
     display_pins,
     hal::{gpio::p0::Parts as P0Parts, prelude::*, uart::Baudrate, Timer},
