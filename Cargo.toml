@@ -1,5 +1,8 @@
 [workspace]
-members = ["microrust-start"]
+members = [
+  "microrust-start",
+  "led-rtic",
+]
 
 [profile.release]
 codegen-units = 1
