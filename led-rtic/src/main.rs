@@ -1,7 +1,7 @@
 #![no_main]
 #![no_std]
 
-use panic_semihosting as _;
+use panic_halt as _;
 
 use microbit::{
     display::{self, image::GreyscaleImage, Display, Frame, MicrobitDisplayTimer, MicrobitFrame},
@@ -13,6 +13,7 @@ use microbit::{
     },
     pac,
 };
+use rtt_target::{rprintln, rtt_init_print};
 use rtic::app;
 
 fn heart_image(inner_brightness: u8) -> GreyscaleImage {
@@ -37,6 +38,7 @@ const APP: () = {
 
     #[init]
     fn init(cx: init::Context) -> init::LateResources {
+        rtt_init_print!();
         let p: pac::Peripherals = cx.device;
 
         // Starting the low-frequency clock (needed for RTC to work)
@@ -57,6 +59,8 @@ const APP: () = {
         let mut pins = display_pins!(p0parts);
 
         display::initialise_display(&mut timer, &mut pins);
+
+        rprintln!("Init Complete");
 
         init::LateResources {
             display_pins: pins,
