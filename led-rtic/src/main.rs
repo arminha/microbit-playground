@@ -4,18 +4,13 @@
 use panic_halt as _;
 
 use microbit::{
-    display::{self, image::GreyscaleImage, Display, Frame, MicrobitDisplayTimer, MicrobitFrame},
-    display_pins,
-    gpio::DisplayPins,
+    display::nonblocking::GreyscaleImage,
     hal::{
-        gpio::{p0::Parts as P0Parts, Input, Pin, PullUp},
+        gpio::{Input, Pin, PullUp},
         prelude::InputPin,
-        rtc::{Rtc, RtcInterrupt},
     },
-    pac,
 };
 use rtic::app;
-use rtt_target::{rprintln, rtt_init_print};
 
 fn heart_image(inner_brightness: u8) -> GreyscaleImage {
     let b = inner_brightness;
@@ -106,97 +101,104 @@ impl Button {
 }
 
 #[app(device = microbit::pac, peripherals = true)]
-const APP: () = {
-    struct Resources {
-        display_pins: DisplayPins,
-        display_timer: MicrobitDisplayTimer<pac::TIMER1>,
+mod app {
+
+    use microbit::{
+        board::Board,
+        display::nonblocking::{Display, Frame, MicrobitFrame},
+        hal::{
+            clocks::Clocks,
+            rtc::{Rtc, RtcInterrupt},
+        },
+        pac,
+    };
+    use rtt_target::{rprintln, rtt_init_print};
+    use super::*;
+
+    #[shared]
+    struct Shared {
+        display: Display<pac::TIMER1>,
+    }
+
+    #[local]
+    struct Local {
         anim_timer: Rtc<pac::RTC0>,
-        display: Display<MicrobitFrame>,
         button_a: Button,
         button_b: Button,
     }
 
     #[init]
-    fn init(cx: init::Context) -> init::LateResources {
+    fn init(cx: init::Context) -> (Shared, Local, init::Monotonics) {
         rtt_init_print!();
-        let p: pac::Peripherals = cx.device;
+        let board = Board::new(cx.device, cx.core);
 
         // Starting the low-frequency clock (needed for RTC to work)
-        p.CLOCK.tasks_lfclkstart.write(|w| unsafe { w.bits(1) });
-        while p.CLOCK.events_lfclkstarted.read().bits() == 0 {}
-        p.CLOCK.events_lfclkstarted.reset();
+        Clocks::new(board.CLOCK).start_lfclk();
 
         // RTC at 16Hz (32_768 / (2047 + 1))
         // 16Hz; 62.5ms period
-        let mut rtc0 = Rtc::new(p.RTC0, 2047).unwrap();
+        let mut rtc0 = Rtc::new(board.RTC0, 2047).unwrap();
         rtc0.enable_event(RtcInterrupt::Tick);
         rtc0.enable_interrupt(RtcInterrupt::Tick, None);
         rtc0.enable_counter();
 
-        let mut timer = MicrobitDisplayTimer::new(p.TIMER1);
-
-        let p0parts = P0Parts::new(p.GPIO);
-        let mut pins = display_pins!(p0parts);
-        let button_a = Button::new(p0parts.p0_17.degrade());
-        let button_b = Button::new(p0parts.p0_26.degrade());
-
-        display::initialise_display(&mut timer, &mut pins);
+        let display = Display::new(board.TIMER1, board.display_pins);
+        let button_a = Button::new(board.buttons.button_a.degrade());
+        let button_b = Button::new(board.buttons.button_b.degrade());
 
         rprintln!("Init Complete");
 
-        init::LateResources {
-            display_pins: pins,
-            display_timer: timer,
-            anim_timer: rtc0,
-            display: Display::new(),
-            button_a,
-            button_b,
-        }
+        (
+            Shared { display },
+            Local {
+                anim_timer: rtc0,
+                button_a,
+                button_b,
+            },
+            init::Monotonics(),
+        )
     }
 
     #[task(binds = TIMER1, priority = 2,
-           resources = [display_timer, display_pins, display])]
+           shared = [display])]
     fn timer1(mut cx: timer1::Context) {
-        display::handle_display_event(
-            &mut cx.resources.display,
-            cx.resources.display_timer,
-            cx.resources.display_pins,
-        );
+        cx.shared
+        .display
+        .lock(|display| display.handle_display_event());
     }
 
-    #[task(binds = RTC0, priority = 1,
-           resources = [anim_timer, display, button_a, button_b])]
-    fn rtc0(mut cx: rtc0::Context) {
-        static mut FRAME: MicrobitFrame = MicrobitFrame::const_default();
-        static mut STEP: u8 = 0;
-        static mut ANIMATE: bool = true;
-        static mut IMAGES: Images = Images::Heart;
+    #[task(binds = RTC0, priority = 1, shared = [display], local = [anim_timer, button_a, button_b,
+        frame: MicrobitFrame = MicrobitFrame::default(),
+        step: u8 = 0, animate: bool = true, images: Images = Images::Heart])]
+    fn rtc0(cx: rtc0::Context) {
+        let mut shared = cx.shared;
+        let local = cx.local;
 
-        cx.resources.anim_timer.reset_event(RtcInterrupt::Tick);
+        local.anim_timer.reset_event(RtcInterrupt::Tick);
 
-        if cx.resources.button_b.check_rising_edge() {
-            let new_image = IMAGES.toggle();
+        if local.button_b.check_rising_edge() {
+            let new_image = local.images.toggle();
             rprintln!("Showing {:?}", new_image);
-            *IMAGES = new_image;
+            *local.images = new_image;
         }
 
-        let mut animate = *ANIMATE;
-        if cx.resources.button_a.check_rising_edge() {
+        let mut animate = *local.animate;
+        if local.button_a.check_rising_edge() {
             animate = !animate;
             if animate {
                 rprintln!("Start animation");
             } else {
                 rprintln!("Stop animation");
             }
-            *STEP = 0;
-            *ANIMATE = animate;
+            *local.step = 0;
+            *local.animate = animate;
         }
 
         let inner_brightness = if animate {
-            match *STEP {
-                0..=8 => 9 - *STEP,
+            match *local.step {
+                0..=8 => 9 - *local.step,
                 9..=12 => 0,
-                13..=20 => 21 - *STEP,
+                13..=20 => 21 - *local.step,
                 21..=24 => 0,
                 _ => unreachable!(),
             }
@@ -204,21 +206,21 @@ const APP: () = {
             0
         };
 
-        let image = match *IMAGES {
+        let image = match *local.images {
             Images::Heart => heart_image(inner_brightness),
             Images::Rust => rust_image(),
-            Images::Author => author_image(*STEP),
+            Images::Author => author_image(*local.step),
         };
-        FRAME.set(&image);
-        cx.resources.display.lock(|display| {
-            display.set_frame(FRAME);
+        local.frame.set(&image);
+        shared.display.lock(|display| {
+            display.show_frame(local.frame);
         });
 
         if animate {
-            *STEP += 1;
-            if *STEP == 25 {
-                *STEP = 0
+            *local.step += 1;
+            if *local.step == 25 {
+                *local.step = 0
             };
         }
     }
-};
+}
